@@ -4,7 +4,7 @@ Ces notes restent dans `/root/masterclass-nginx` (mode 700). L'élève ne doit p
 
 L'objectif est la méthode, pas les commandes : observer, lire le journal, trouver la cause, corriger, vérifier. Faites-la répéter à chaque panne.
 
-Toutes les sorties ci-dessous viennent d'un vrai test sur un Debian 13 neuf (nginx 1.26.3, 2 vCPU, 2 Go). Les PID, dates et noms de machine changeront chez vous.
+Toutes les sorties ci-dessous viennent d'un vrai test sur un droplet DigitalOcean neuf, image officielle Debian 13 (nginx 1.26.3, 2 vCPU, 2 Go). Les PID, dates et noms de machine changeront chez vous.
 
 ## Préparation
 
@@ -319,6 +319,6 @@ Le reset tue tous les processus de l'utilisateur `student`. Ne le lancez pas pen
 
 En mode mot de passe, le SSH de `student` est ouvert aux bots qui testent des mots de passe. Provisionnez le VPS juste avant la séance et détruisez-le juste après. Pas de pare-feu ajouté par les scripts.
 
-Testé uniquement sur Debian 13. Debian 12 et Ubuntu 22.04/24.04 ne sont pas testés.
+Testé uniquement sur un droplet DigitalOcean en Debian 13. Les autres hébergeurs, Debian 12 et Ubuntu 22.04/24.04 ne sont pas testés. Sur DigitalOcean, l'image contient `/etc/ssh/sshd_config.d/50-cloud-init.conf` avec `PasswordAuthentication no` : c'est pour ça que notre fichier s'appelle `00-masterclass.conf`. Chez un autre hébergeur, vérifiez que `check.sh` affiche bien PASS sur la ligne SSH.
 
 Détail technique : l'image disque est remplie avec `nodelalloc`. Sans cette option, ext4 garde quelques blocs en réserve et `df` n'affiche jamais 0 disponible.

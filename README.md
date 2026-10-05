@@ -50,7 +50,7 @@ Reset takes about 4 seconds. It kills the student sessions, so never run it duri
 
 ## Tests
 
-Last full run on a fresh Debian 13 VPS (nginx 1.26.3, 2 vCPU), password mode:
+Last full run on a fresh DigitalOcean droplet, official Debian 13 image (nginx 1.26.3, 2 vCPU, 2 GB), password mode:
 
 - `bash -n` and `shellcheck -x` clean.
 - Provisioning as above: 60 s until `all checks passed`.
@@ -62,7 +62,7 @@ Last full run on a fresh Debian 13 VPS (nginx 1.26.3, 2 vCPU), password mode:
 - Reset from a damaged state: 5 s. Damage was: files deleted on the disk, `.orig` file, broken nginx.conf, decoy disabled, sudoers and SSH drop-in removed, password changed, history and files left, a process inside the mount, mount read-only, reserve on.
 - Reboot: student SSH back after 29 s, all checks pass.
 
-Not tested: Debian 12, Ubuntu 22.04 and 24.04.
+Not tested: other providers, Debian 12, Ubuntu 22.04 and 24.04. The SSH drop-in is named `00-` because the DigitalOcean image ships `50-cloud-init.conf` with `PasswordAuthentication no`; another provider may differ.
 
 ## Debug
 
