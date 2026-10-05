@@ -116,6 +116,11 @@ EOF
     trap 'rm -f "$keyfile"' EXIT
 }
 
+if ((rebuild)) || [[ ! -f $PRISTINE_IMG ]]; then
+    # Pristine image, live copy and the temporary archive content during the build.
+    free_mb=$(df --output=avail -BM /var | tail -1 | tr -dc 0-9)
+    ((free_mb >= 600)) || die "need 600 MB free on /var, only ${free_mb} MB available"
+fi
 install_self
 install_packages
 install -d -m 700 "$STATE"
