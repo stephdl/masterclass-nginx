@@ -95,6 +95,10 @@ no_leftovers() {
         ! grep -q '#' "$DEMO_CONF"
 }
 
+sudo_with_password() {
+    [[ $(sudo -l -U "$STUDENT") == *"(ALL) ALL"* ]] && [[ $(sudo -l -U "$STUDENT") != *NOPASSWD* ]]
+}
+
 password_auth_ok() {
     local stu root
     stu=$(sshd -T -C "user=$STUDENT,host=test,addr=192.0.2.1")
@@ -112,7 +116,11 @@ if ((wait_load)); then
 fi
 
 check "user $STUDENT exists" id "$STUDENT"
-check "$STUDENT has passwordless sudo" runuser -u "$STUDENT" -- sudo -n true
+if [[ -f $STATE/student.hash ]]; then
+    check "$STUDENT has sudo with password" sudo_with_password
+else
+    check "$STUDENT has passwordless sudo" runuser -u "$STUDENT" -- sudo -n true
+fi
 if [[ -f $STATE/student.pub ]]; then
     check "$STUDENT authorized_keys is a valid key" ssh-keygen -lf "$STUDENT_HOME/.ssh/authorized_keys"
 fi

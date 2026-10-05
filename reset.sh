@@ -28,13 +28,19 @@ ensure_student() {
         # A "*" password keeps key login working where "!" would count as a locked account.
         usermod -p '*' "$STUDENT"
     fi
-    printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$STUDENT" >/etc/sudoers.d/.student.new
+    # Without a password the student could never type one, so key-only mode keeps NOPASSWD.
+    if [[ -f $STATE/student.hash ]]; then
+        printf '%s ALL=(ALL) ALL\n' "$STUDENT" >/etc/sudoers.d/.student.new
+    else
+        printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$STUDENT" >/etc/sudoers.d/.student.new
+    fi
     visudo -cqf /etc/sudoers.d/.student.new
     chmod 440 /etc/sudoers.d/.student.new
     mv /etc/sudoers.d/.student.new "/etc/sudoers.d/$STUDENT"
 }
 
 clean_student_home() {
+    rm -rf "/var/run/sudo/ts/$STUDENT"
     install -d -o "$STUDENT" -g "$STUDENT" "$STUDENT_HOME"
     find "$STUDENT_HOME" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
     cp -a /etc/skel/. "$STUDENT_HOME/"

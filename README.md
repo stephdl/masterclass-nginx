@@ -2,7 +2,7 @@
 
 Scripts for a one-to-one Linux troubleshooting session. A beginner connects to a throwaway VPS and repairs a broken nginx.
 
-Run everything as root on a throwaway VPS only. The scripts create a user with passwordless sudo, a loop mount, systemd units, and can open SSH passwords for that user.
+Run everything as root on a throwaway VPS only. The scripts create a user with sudo (asks the password in password mode, passwordless in key mode), a loop mount, systemd units, and can open SSH passwords for that user.
 
 ## The failures
 

@@ -28,7 +28,7 @@ Avant chaque séance :
 
 Le reset prend environ 4 s. Il tue les sessions de l'élève, restaure le disque, la config nginx, son home, et vide tout le journal système. Il finit par `check.sh`. Si seule la charge est en FAIL (le leurre était arrêté), relancez `check.sh` une minute plus tard.
 
-Le compte élève : `ssh student@VPS`, sudo sans mot de passe.
+Le compte élève : `ssh student@VPS`. En mode mot de passe, sudo demande le mot de passe (gardé 15 min). En mode clé, sudo ne demande rien.
 
 N'écrivez pas le mot de passe dans `setup.sh`, mettez-le seulement dans la commande.
 
