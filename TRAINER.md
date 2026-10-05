@@ -1,62 +1,62 @@
-# Masterclass nginx : notes du formateur
+# Masterclass nginx: trainer notes
 
-Ces notes restent dans `/root/masterclass-nginx` (mode 700). L'élève ne doit pas les voir.
+These notes stay in `/root/masterclass-nginx` (mode 700). The student must not see them.
 
-L'objectif est la méthode, pas les commandes : observer, lire le journal, trouver la cause, corriger, vérifier. Faites-la répéter à chaque panne.
+The goal is the method, not the commands: observe, read the journal, find the cause, fix, verify. Have the student repeat it for each failure.
 
-Toutes les sorties ci-dessous viennent d'un vrai test sur un droplet DigitalOcean neuf, image officielle Debian 13 (nginx 1.26.3, 2 vCPU, 2 Go). Les PID, dates et noms de machine changeront chez vous.
+All outputs below come from a real run on a fresh DigitalOcean droplet, official Debian 13 image (nginx 1.26.3, 2 vCPU, 2 GB). PIDs, dates and host names will differ on your machine.
 
-## Préparation
+## Preparation
 
-Créez un VPS Debian 13 neuf juste avant la séance. Depuis votre poste :
+Create a fresh Debian 13 VPS just before the session. From your workstation:
 
 ```
 ssh root@VPS mkdir -m 700 /tmp/mcs
 scp *.sh TRAINER.md README.md root@VPS:/tmp/mcs/
-ssh root@VPS 'STUDENT_PASSWORD="mot-de-passe" /tmp/mcs/setup.sh --yes-this-is-a-throwaway-vps'
+ssh root@VPS 'STUDENT_PASSWORD="the-password" /tmp/mcs/setup.sh --yes-this-is-a-throwaway-vps'
 ssh root@VPS rm -rf /tmp/mcs
 ```
 
-Avec une clé au lieu d'un mot de passe : `STUDENT_PUBKEY="ssh-ed25519 AAAA..."`, ou le chemin d'un `.pub` en argument.
+With a key instead of a password: `STUDENT_PUBKEY="ssh-ed25519 AAAA..."`, or the path to a `.pub` file as argument.
 
-Temps mesurés sur une machine neuve :
+Times measured on a fresh machine:
 
-| Étape | Durée |
+| Step | Duration |
 |---|---|
-| Copie des fichiers | 6 s |
-| Setup (apt, image disque, reset, attente de la charge) | 52 s |
-| Total jusqu'à `all checks passed` | 60 s |
-| Second setup (rien à refaire) | 5 s |
-| Reset entre deux séances | 4 à 5 s |
-| Reboot jusqu'à ce que l'élève puisse se connecter | 29 s |
+| Copy the files | 6 s |
+| Setup (apt, disk image, reset, wait for the load) | 52 s |
+| Total until `all checks passed` | 60 s |
+| Second setup (nothing to redo) | 5 s |
+| Reset between two sessions | 4 to 5 s |
+| Reboot until the student can log in | 29 s |
 
-Le setup refuse de tourner sans `--yes-this-is-a-throwaway-vps`, sans mot de passe ni clé, et s'il reste moins de 600 Mo libres sur `/var`.
+Setup refuses to run without `--yes-this-is-a-throwaway-vps`, without a password or key, and with less than 600 MB free on `/var`.
 
-En mode mot de passe, le setup ajoute `/etc/ssh/sshd_config.d/00-masterclass.conf`, qui autorise les mots de passe pour `student` seulement. Root reste en clé. sudo demande le mot de passe, puis le garde 15 minutes. Le script ne garde que le hash. N'écrivez jamais le mot de passe dans un fichier.
+In password mode, setup adds `/etc/ssh/sshd_config.d/00-masterclass.conf`, which allows passwords for `student` only. Root stays key only. sudo asks for the password, then remembers it for 15 minutes. The script keeps only the hash. Never write the password in a file.
 
-Avant chaque séance :
+Before each session:
 
 ```
 /root/masterclass-nginx/reset.sh --yes-this-is-a-throwaway-vps
 ```
 
-Le reset tue les sessions de l'élève, restaure le disque, la config nginx, le mot de passe, la conf SSH et le home, et vide tout le journal système. Il finit par `check.sh`. Si seule la charge est en FAIL (le leurre était arrêté), relancez `check.sh` une minute plus tard.
+Reset kills the student sessions, restores the disk, the nginx config, the password, the SSH config and the home directory, and wipes the whole system journal. It ends with `check.sh`. If only the load check fails (the decoy was stopped), run `check.sh` again one minute later.
 
-## Déroulé (60 min)
+## Timeline (60 min)
 
-| Temps | Étape |
+| Time | Step |
 |---|---|
-| 0-5 | Connexion SSH, où suis-je (`hostname`, `whoami`), rappel de la méthode |
-| 5-15 | Leurre : la machine est chargée |
-| 15-35 | Panne 1 : faute de frappe dans la config |
-| 35-55 | Panne 2 : disque plein |
-| 55-60 | Débrief : refaire la chaîne de raisonnement à voix haute |
+| 0-5 | SSH login, where am I (`hostname`, `whoami`), reminder of the method |
+| 5-15 | Decoy: the machine is busy |
+| 15-35 | Failure 1: typo in the config |
+| 35-55 | Failure 2: full disk |
+| 55-60 | Debrief: walk through the reasoning again out loud |
 
-Si l'élève va vite, enchaînez avec la réserve port 80.
+If the student is fast, continue with the port 80 reserve.
 
-Consigne de départ : « Le site web de cette machine ne répond plus. Trouve pourquoi et répare-le. »
+Opening brief: "The web site on this machine does not answer any more. Find out why and fix it."
 
-## Étape 1 : le leurre (charge CPU)
+## Step 1: the decoy (CPU load)
 
 ```
 $ uptime
@@ -78,18 +78,18 @@ $ systemctl status report-batch
              └─3560 /bin/bash /usr/local/bin/report-batch
 ```
 
-Ce qu'il faut conclure : la charge est réelle mais sans rapport avec nginx. Le CPU est pris en `ni` (nice), les processus ont NI à 19 : la machine reste réactive. On ne tue rien. On note l'observation et on passe à nginx.
+What to conclude: the load is real but unrelated to nginx. The CPU time is in `ni` (nice) and the processes have NI 19, so the machine stays responsive. Nothing gets killed. Note the observation and move on to nginx.
 
-Piège : l'élève veut tuer `report-batch`. S'il l'arrête, demandez-lui si le site remarche. Non. Corriger ce qu'on voit n'est pas corriger la panne.
+Trap: the student wants to kill `report-batch`. If they stop it, ask whether the site works again. It does not. Fixing what you see is not fixing the failure.
 
-Indices :
-1. Vague : « La machine est occupée. Est-ce que ça explique que le site ne réponde pas ? »
-2. Précis : « Regarde la colonne NI. Que veut dire 19 ? Quel service a lancé ces processus ? »
-3. Explicite : « C'est un batch sans rapport. Regarde `systemctl status nginx`. »
+Hints:
+1. Vague: "The machine is busy. Does that explain why the site does not answer?"
+2. Precise: "Look at the NI column. What does 19 mean? Which service started these processes?"
+3. Explicit: "It is an unrelated batch job. Look at `systemctl status nginx`."
 
-## Étape 2 : la faute de frappe
+## Step 2: the typo
 
-Sans sudo, l'élève voit que nginx est en panne, mais pas pourquoi :
+Without sudo, the student sees that nginx is down, but not why:
 
 ```
 $ systemctl status nginx
@@ -107,7 +107,7 @@ Hint: You are currently not seeing messages from other users and the system.
 -- No entries --
 ```
 
-Piège : « No entries » ne veut pas dire « pas d'erreur ». C'est un problème de droits. Bon moment pour parler de sudo. Le premier sudo demande le mot de passe :
+Trap: "No entries" does not mean "no error". It is a permission problem. Good moment to talk about sudo. The first sudo asks for the password:
 
 ```
 $ sudo journalctl -u nginx -e
@@ -129,25 +129,25 @@ $ cat -n /etc/nginx/conf.d/demo.conf
      8	    index index.html;
 ```
 
-Piège : nginx annonce la ligne 8, mais la faute est ligne 7. Le point-virgule manque à la fin de `root`, donc nginx lit `root /var/www/demo index index.html;` comme une seule directive à trois arguments.
+Trap: nginx reports line 8, but the mistake is on line 7. The semicolon is missing at the end of `root`, so nginx reads `root /var/www/demo index index.html;` as one directive with three arguments.
 
-Solution :
+Solution:
 
 ```
-sudo nano /etc/nginx/conf.d/demo.conf     # ajouter ; à la fin de la ligne 7
+sudo nano /etc/nginx/conf.d/demo.conf     # add ; at the end of line 7
 sudo nginx -t
 ```
 
-Indices :
-1. Vague : « Que dit le journal exactement ? Lis le message en entier, pas juste "failed". »
-2. Précis : « Le message donne un fichier et une ligne. Ouvre-le. Regarde aussi la ligne juste au-dessus. »
-3. Explicite : « Il manque un point-virgule à la fin de la ligne `root`. »
+Hints:
+1. Vague: "What does the journal say exactly? Read the whole message, not just "failed"."
+2. Precise: "The message gives a file and a line. Open it. Look at the line just above too."
+3. Explicit: "A semicolon is missing at the end of the `root` line."
 
-Insistez : on teste avec `nginx -t` avant de redémarrer.
+Insist: test with `nginx -t` before restarting.
 
-## Étape 3 : le disque plein (panne cachée)
+## Step 3: the full disk (hidden failure)
 
-Juste après la correction, une nouvelle erreur apparaît :
+Right after the fix, a new error shows up:
 
 ```
 $ sudo nginx -t
@@ -164,9 +164,9 @@ Oct 05 13:23:36 debian-s-2vcpu-2gb-fra1 nginx[3913]: 2026/10/05 13:23:36 [emerg]
 Oct 05 13:23:36 debian-s-2vcpu-2gb-fra1 nginx[3913]: nginx: configuration file /etc/nginx/nginx.conf test failed
 ```
 
-Piège : « syntax is ok ». La première panne est bien réparée, c'est une deuxième panne. Elle était invisible avant, car nginx s'arrête à la première erreur de syntaxe.
+Trap: "syntax is ok". The first failure is fixed, this is a second one. It was invisible before, because nginx stops at the first syntax error.
 
-Enquête (extrait de `df -h`, la vraie sortie liste aussi une dizaine de `tmpfs`) :
+Investigation (excerpt of `df -h`, the real output also lists about ten `tmpfs` lines):
 
 ```
 $ df -h
@@ -188,9 +188,9 @@ $ ls -la /srv/demo-data/backups/2023
 -rw-r--r-- 1 root root 186449920 Mar 14  2023 site-backup-2023-03-14.tar
 ```
 
-Piège : `/` est à 3 %. Un débutant conclut souvent « le disque n'est pas plein ». Faites lire toutes les lignes de `df`, pas seulement la première. Le chemin du message d'erreur (`/srv/demo-data/...`) dit sur quel disque regarder.
+Trap: `/` is at 3%. A beginner often concludes "the disk is not full". Make them read every line of `df`, not only the first one. The path in the error message (`/srv/demo-data/...`) tells which disk to look at.
 
-Avant de supprimer, l'élève doit vérifier ce qu'est le fichier :
+Before deleting, the student must check what the file is:
 
 ```
 $ file /srv/demo-data/backups/2023/site-backup-2023-03-14.tar
@@ -212,9 +212,9 @@ uploads/  files served by the web site under /uploads/
 exports/  monthly reports, keep 12 months
 ```
 
-Piège : ne pas tout effacer. `uploads/` est servi par le site, `exports/` est à garder. Seule l'archive de 2023 part.
+Trap: do not delete everything. `uploads/` is served by the site and `exports/` must be kept. Only the 2023 archive goes.
 
-Solution :
+Solution:
 
 ```
 $ sudo rm /srv/demo-data/backups/2023/site-backup-2023-03-14.tar
@@ -237,23 +237,23 @@ $ curl http://localhost/uploads/welcome.txt
 Welcome to the demo site.
 ```
 
-Indices :
-1. Vague : « Que veut dire "No space left on device" ? Sur quel disque ? »
-2. Précis : « `df -h` montre tous les disques. Puis `du` pour trouver ce qui prend la place. »
-3. Explicite : « Une vieille sauvegarde de 2023 remplit `/srv/demo-data`. Vérifie avec `file`, supprime-la, redémarre. »
+Hints:
+1. Vague: "What does "No space left on device" mean? On which disk?"
+2. Precise: "`df -h` shows every disk. Then `du` to find what takes the space."
+3. Explicit: "An old 2023 backup fills `/srv/demo-data`. Check it with `file`, delete it, restart."
 
-Fin : demandez la preuve que c'est réparé. « Il a redémarré » ne suffit pas. `curl -I` qui répond 200, oui. Le `curl` sur `/uploads/` prouve aussi que les fichiers légitimes sont intacts.
+End: ask for proof that it is fixed. "It restarted" is not enough. `curl -I` answering 200 is. The `curl` on `/uploads/` also proves the legitimate files are intact.
 
-## Réserve : le port 80 occupé
+## Reserve: port 80 taken
 
-Uniquement une fois le scénario principal réparé (le script refuse sinon, avec `nginx -t fails, finish the main scenario first`). En root :
+Only once the main scenario is fixed (otherwise the script refuses with `nginx -t fails, finish the main scenario first`). As root:
 
 ```
 $ /root/masterclass-nginx/extra-port80.sh --yes-this-is-a-throwaway-vps on
 reserve on: nginx failed, port 80 is held by legacy-dashboard.service
 ```
 
-Ce que l'élève voit :
+What the student sees:
 
 ```
 $ sudo journalctl -u nginx -e
@@ -270,7 +270,7 @@ nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
 nginx: configuration file /etc/nginx/nginx.conf test is successful
 ```
 
-Piège : `nginx -t` passe, la config est bonne. Le problème est ailleurs.
+Trap: `nginx -t` passes, the config is fine. The problem is elsewhere.
 
 ```
 $ sudo ss -ltnp 'sport = :80'
@@ -284,7 +284,7 @@ $ systemctl status 4152
    Main PID: 4152 (python3)
 ```
 
-Piège : `kill` ne suffit pas. Le service a `Restart=always` et revient avec un autre PID :
+Trap: `kill` is not enough. The service has `Restart=always` and comes back with another PID:
 
 ```
 $ sudo kill 4152
@@ -292,7 +292,7 @@ $ sudo ss -ltnp 'sport = :80'
 LISTEN 0      5            0.0.0.0:80        0.0.0.0:*    users:(("python3",pid=4230,fd=3))
 ```
 
-Solution :
+Solution:
 
 ```
 $ sudo systemctl disable --now legacy-dashboard
@@ -302,23 +302,23 @@ $ curl -I http://localhost
 HTTP/1.1 200 OK
 ```
 
-Indices :
-1. Vague : « La config est bonne d'après `nginx -t`. Que dit le journal ? »
-2. Précis : « Quelqu'un d'autre utilise le port 80. Qui ? `ss -ltnp`. »
-3. Explicite : « C'est le service `legacy-dashboard`. Arrête-le et désactive-le avec systemctl. »
+Hints:
+1. Vague: "The config is fine according to `nginx -t`. What does the journal say?"
+2. Precise: "Something else uses port 80. What? `ss -ltnp`."
+3. Explicit: "It is the `legacy-dashboard` service. Stop and disable it with systemctl."
 
-Pour retirer la réserve : `extra-port80.sh --yes-this-is-a-throwaway-vps off` (ou simplement `reset.sh`).
+To remove the reserve: `extra-port80.sh --yes-this-is-a-throwaway-vps off` (or just `reset.sh`).
 
-## Points d'attention
+## Things to keep in mind
 
-L'élève a sudo complet. Il peut donc lire ces notes s'il le cherche. La seule frontière est le VPS jetable.
+The student has full sudo, so they can read these notes if they look for them. The only boundary is the throwaway VPS.
 
-`reset.sh` vide tout le journal système, pas seulement celui de nginx. C'est voulu : la séance précédente ne doit pas laisser la solution dans `journalctl`.
+`reset.sh` wipes the whole system journal, not only nginx's. This is on purpose: the previous session must not leave the solution in `journalctl`.
 
-Le reset tue tous les processus de l'utilisateur `student`. Ne le lancez pas pendant une séance.
+Reset kills every process of the `student` user. Never run it during a session.
 
-En mode mot de passe, le SSH de `student` est ouvert aux bots qui testent des mots de passe. Provisionnez le VPS juste avant la séance et détruisez-le juste après. Pas de pare-feu ajouté par les scripts.
+In password mode, the `student` SSH login is open to bots that try passwords. Provision the VPS just before the session and destroy it right after. The scripts add no firewall.
 
-Testé uniquement sur un droplet DigitalOcean en Debian 13. Les autres hébergeurs, Debian 12 et Ubuntu 22.04/24.04 ne sont pas testés. Sur DigitalOcean, l'image contient `/etc/ssh/sshd_config.d/50-cloud-init.conf` avec `PasswordAuthentication no` : c'est pour ça que notre fichier s'appelle `00-masterclass.conf`. Chez un autre hébergeur, vérifiez que `check.sh` affiche bien PASS sur la ligne SSH.
+Tested only on a DigitalOcean droplet with Debian 13. Other providers, Debian 12 and Ubuntu 22.04/24.04 are not tested. On DigitalOcean, the image ships `/etc/ssh/sshd_config.d/50-cloud-init.conf` with `PasswordAuthentication no`. That is why our file is named `00-masterclass.conf`. With another provider, check that `check.sh` shows PASS on the SSH line.
 
-Détail technique : l'image disque est remplie avec `nodelalloc`. Sans cette option, ext4 garde quelques blocs en réserve et `df` n'affiche jamais 0 disponible.
+Technical detail: the disk image is filled with `nodelalloc`. Without this option ext4 keeps a few blocks in reserve and `df` never shows 0 available.

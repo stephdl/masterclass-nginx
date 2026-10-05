@@ -11,7 +11,7 @@ Run everything as root on a throwaway VPS only. The scripts create a user with s
 3. Full disk: `/srv/demo-data` is 100% full because of `backups/2023/site-backup-2023-03-14.tar`. The error only shows after the typo is fixed.
 4. Optional: `extra-port80.sh on` holds port 80 with `legacy-dashboard.service`.
 
-Solutions and real outputs are in `TRAINER.md` (French).
+Solutions and real outputs are in `TRAINER.md`.
 
 ## Provision
 
