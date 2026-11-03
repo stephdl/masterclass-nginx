@@ -46,8 +46,8 @@ Reset kills the student sessions, restores the disk, the nginx config, the passw
 
 | Time | Step |
 |---|---|
-| 0-5 | SSH login, where am I (`hostname`, `whoami`), reminder of the method |
-| 5-15 | Decoy: the machine is busy |
+| 0-10 | SSH login, discovery of the machine (see Step 0) |
+| 10-15 | Decoy: the machine is busy |
 | 15-35 | Failure 1: typo in the config |
 | 35-55 | Failure 2: full disk |
 | 55-60 | Debrief: walk through the reasoning again out loud |
@@ -57,6 +57,48 @@ If the student is fast, continue with the port 80 reserve.
 Variant: start with port 80 already taken (see "Variant: wrong site from the start" below).
 
 Opening brief: "The web site on this machine does not answer any more. Find out why and fix it."
+
+## Step 0: discovery
+
+Before touching anything, the student takes a tour of the machine. Ask for one question at a time and let them pick the command. Each answer goes in their notes.
+
+| Question | Commands |
+|---|---|
+| Who am I, what rights? | `whoami`, `id`, `sudo -l` |
+| Which machine? | `hostname`, `cat /etc/os-release`, `uname -r` |
+| Resources? | `uptime`, `nproc`, `free -h` |
+| Disks? | `df -h -x tmpfs -x devtmpfs`, `lsblk` |
+| Who listens? | `ip -br a`, `ss -ltn` (`sudo ss -ltnp` for process names) |
+| Services? | `systemctl --failed`, `systemctl list-units --type=service --state=running` |
+| Recent errors? | `sudo journalctl -p err -b` |
+| Who else is here? | `who` |
+| The web software? | `dpkg -l nginx`, `ls /etc/nginx/conf.d /etc/nginx/sites-enabled` |
+
+What the student should note:
+
+```
+$ uptime
+ load average: 2.10, 2.14, 1.75
+$ nproc
+2
+$ df -h -x tmpfs -x devtmpfs
+/dev/loop0      182M  178M     0 100% /srv/demo-data
+$ systemctl --failed
+  nginx.service loaded failed failed A high performance web server and a reverse proxy server
+$ systemctl list-units --type=service --state=running
+  report-batch.service  loaded active running Nightly report batch
+```
+
+Three leads come out of this tour: a load above the CPU count, a full disk on `/srv/demo-data`, and nginx in failure. Only the last one is the symptom. The other two get noted and checked later. With the port 80 reserve active, `sudo ss -ltnp` also shows `python3` on port 80.
+
+Trap: the student jumps on the first anomaly. Ask them to finish the tour first, then pick a lead.
+
+Do not project the screen during `who`. It shows the public IP of the student.
+
+Hints:
+1. Vague: "Before you fix anything, what do you know about this machine?"
+2. Precise: "Look at the disks, the open ports and the failed services."
+3. Explicit: "Run `df -h`, `ss -ltn` and `systemctl --failed`. Write down what looks odd."
 
 ## Step 1: the decoy (CPU load)
 
