@@ -2,7 +2,7 @@
 # Build the nginx troubleshooting scenario on a fresh VPS.
 # Usage: STUDENT_PASSWORD='...' ./setup.sh --yes-this-is-a-throwaway-vps
 #        STUDENT_PUBKEY="ssh-ed25519 AAAA..." ./setup.sh --yes-this-is-a-throwaway-vps
-#        ./setup.sh --yes-this-is-a-throwaway-vps [--rebuild-image] [/path/to/student.pub]
+#        ./setup.sh --yes-this-is-a-throwaway-vps [--rebuild-image] [--port80] [/path/to/student.pub]
 set -euo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -11,10 +11,12 @@ here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 parse_args "$@"
 
 rebuild=0
+reset_opts=()
 key_src=${STUDENT_PUBKEY:-}
 for a in "${ARGS[@]}"; do
     case $a in
     --rebuild-image) rebuild=1 ;;
+    --port80) reset_opts+=(--port80) ;;
     -*) die "unknown option $a" ;;
     *) key_src=$a ;;
     esac
@@ -139,5 +141,5 @@ if ((rebuild)) || [[ ! -f $PRISTINE_IMG ]]; then
     build_image
 fi
 
-"$BASE/reset.sh" "$FLAG" --no-check
+"$BASE/reset.sh" "$FLAG" "${reset_opts[@]}" --no-check
 "$BASE/check.sh" "$FLAG" --wait-load

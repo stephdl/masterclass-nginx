@@ -54,6 +54,8 @@ Reset kills the student sessions, restores the disk, the nginx config, the passw
 
 If the student is fast, continue with the port 80 reserve.
 
+Variant: start with port 80 already taken (see "Variant: wrong site from the start" below).
+
 Opening brief: "The web site on this machine does not answer any more. Find out why and fix it."
 
 ## Step 1: the decoy (CPU load)
@@ -308,6 +310,40 @@ Hints:
 3. Explicit: "It is the `legacy-dashboard` service. Stop and disable it with systemctl."
 
 To remove the reserve: `extra-port80.sh --yes-this-is-a-throwaway-vps off` (or just `reset.sh`).
+
+## Variant: wrong site from the start
+
+The customer calls: "something answers, but it is not our site". Port 80 is held by `legacy-dashboard.service` before the student logs in. Prepare it with `--port80`:
+
+```
+$ /root/masterclass-nginx/reset.sh --yes-this-is-a-throwaway-vps --port80
+```
+
+`check.sh` then expects the dashboard on port 80 instead of nothing. The variant stays until the next reset without `--port80`.
+
+Opening brief: "Our web site shows an old dashboard instead of the demo site. Find out why and fix it."
+
+What the student sees first:
+
+```
+$ curl -i http://localhost
+HTTP/1.0 200 OK
+Server: SimpleHTTP/0.6 Python/3.13.5
+...
+<h1>Legacy dashboard</h1>
+```
+
+Trap: the 200 looks fine. The `Server:` header and the page show it is not nginx. `systemctl is-active nginx` says `failed`.
+
+The failures come in this order, because `nginx -t` reads the config but never opens the port:
+
+1. `invalid number of arguments in "root" directive in /etc/nginx/conf.d/demo.conf:8`
+2. after the typo fix, `mkdir() "/srv/demo-data/tmp/body" failed (28: No space left on device)`
+3. after the archive is gone, `nginx -t` passes but `systemctl restart nginx` fails with `bind() to 0.0.0.0:80 failed (98: Address already in use)`
+
+The student may spot `python3` on port 80 with `ss -ltnp` early. Fine, but nginx will not start before the config is fixed. The fix and the `kill` trap are the same as in the reserve above.
+
+End: `curl -i http://localhost` answers `HTTP/1.1 200 OK` with `Server: nginx` and "Demo site is up".
 
 ## Things to keep in mind
 

@@ -148,8 +148,13 @@ check "forgotten archive present (>150 MB, from 2023)" archive_ok
 check "legitimate files present, tmp/body absent" legit_ok
 check "after the typo fix, nginx -t fails with ENOSPC" enospc_armed
 
-check "nothing listens on port 80" bash -c "[[ -z \$(ss -Hltn 'sport = :80') ]]"
-check "$RESERVE_UNIT is off" bash -c "! systemctl is-active -q $RESERVE_UNIT"
+if [[ -f $PORT80_MARK ]]; then
+    check "$RESERVE_UNIT active and enabled" bash -c "systemctl is-active -q $RESERVE_UNIT && systemctl is-enabled -q $RESERVE_UNIT"
+    check "port 80 answers with the legacy dashboard" bash -c "curl -s http://localhost | grep -qF 'Legacy dashboard'"
+else
+    check "nothing listens on port 80" bash -c "[[ -z \$(ss -Hltn 'sport = :80') ]]"
+    check "$RESERVE_UNIT is off" bash -c "! systemctl is-active -q $RESERVE_UNIT"
+fi
 
 if ((fails)); then
     echo "$fails check(s) failed"

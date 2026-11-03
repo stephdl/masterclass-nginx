@@ -1,6 +1,6 @@
 #!/bin/bash
 # Put the machine back in the exact starting state, from any state.
-# Usage: ./reset.sh --yes-this-is-a-throwaway-vps [--no-check]
+# Usage: ./reset.sh --yes-this-is-a-throwaway-vps [--port80] [--no-check]
 set -euo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -9,9 +9,11 @@ here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 parse_args "$@"
 
 run_check=1
+port80=0
 for a in "${ARGS[@]}"; do
     case $a in
     --no-check) run_check=0 ;;
+    --port80) port80=1 ;;
     *) die "unknown option $a" ;;
     esac
 done
@@ -133,6 +135,11 @@ ensure_sshd
 ensure_decoy
 restore_data
 restore_nginx
+rm -f "$PORT80_MARK"
+if ((port80)); then
+    reserve_on
+    touch "$PORT80_MARK"
+fi
 
 journalctl -q --rotate
 journalctl -q --vacuum-time=1s
