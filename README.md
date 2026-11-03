@@ -11,6 +11,8 @@ Run everything as root on a throwaway VPS only. The scripts create a user with s
 3. Full disk: `/srv/demo-data` is 100% full because of `backups/2023/site-backup-2023-03-14.tar`. The error only shows after the typo is fixed.
 4. Optional: `extra-port80.sh on` holds port 80 with `legacy-dashboard.service`.
 
+Variant: with `--port80` on `setup.sh` or `reset.sh`, `legacy-dashboard.service` holds port 80 from the start. The student sees a site that answers 200, but it is the wrong one. The port conflict shows last, after the typo and the full disk.
+
 Solutions and real outputs are in `TRAINER.md`.
 
 ## Provision
@@ -39,6 +41,8 @@ ssh root@VPS rm -rf /tmp/mcs
 ```
 
 Give the student `ssh student@VPS` and the password. Destroy the VPS after the session.
+
+For the port 80 variant, add `--port80` to the setup command. Reset keeps the variant only if you pass `--port80` again.
 
 Between two sessions:
 

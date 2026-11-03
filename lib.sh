@@ -14,6 +14,8 @@ DECOY_BIN=/usr/local/bin/report-batch
 
 RESERVE_UNIT=legacy-dashboard.service
 RESERVE_DIR=/var/lib/legacy-dashboard
+# Present when the last reset started the port 80 variant, so check.sh knows what to expect.
+PORT80_MARK=$STATE/variant-port80
 
 MNT=/srv/demo-data
 IMG=/var/lib/demo-data/disk.img
@@ -80,6 +82,30 @@ write_webroot() {
 </html>
 EOF
     chmod 644 "$WEBROOT/index.html"
+}
+
+reserve_on() {
+    install -d -m 755 "$RESERVE_DIR"
+    echo '<h1>Legacy dashboard</h1>' >"$RESERVE_DIR/index.html"
+    cat >"/etc/systemd/system/$RESERVE_UNIT" <<EOF
+[Unit]
+Description=Legacy dashboard
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 -m http.server 80 --bind 0.0.0.0 --directory $RESERVE_DIR
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+    systemctl enable -q --now "$RESERVE_UNIT"
+    for _ in $(seq 20); do
+        [[ -n $(ss -Hltn 'sport = :80') ]] && return 0
+        sleep 0.25
+    done
+    die "$RESERVE_UNIT does not listen on port 80"
 }
 
 reserve_off() {
